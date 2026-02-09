@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import {
-  handleOAuthCallback,
-  getCurrentUser,
-  signOut,
+    handleOAuthCallback,
+    getCurrentUser,
+    signOut,
 } from '../controllers/authController';
 import { authenticate, validateEduEmail } from '../middleware/authMiddleware';
 

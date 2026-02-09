@@ -4,15 +4,15 @@
  * @returns boolean - true if email ends with .edu, false otherwise
  */
 export const isEduEmail = (email: string): boolean => {
-  if (!email || typeof email !== 'string') {
-    return false;
-  }
+    if (!email || typeof email !== 'string') {
+        return false;
+    }
 
-  // Convert to lowercase for case-insensitive comparison
-  const emailLower = email.toLowerCase().trim();
-  
-  // Check if email ends with .edu
-  return emailLower.endsWith('.edu');
+    // Convert to lowercase for case-insensitive comparison
+    const emailLower = email.toLowerCase().trim();
+
+    // Check if email ends with .edu
+    return emailLower.endsWith('.edu');
 };
 
 /**
@@ -21,23 +21,23 @@ export const isEduEmail = (email: string): boolean => {
  * @returns string - The college name or empty string if invalid
  */
 export const extractCollegeName = (email: string): string => {
-  if (!isEduEmail(email)) {
-    return '';
-  }
+    if (!isEduEmail(email)) {
+        return '';
+    }
 
-  const emailLower = email.toLowerCase().trim();
-  const domain = emailLower.split('@')[1];
-  
-  if (!domain) {
-    return '';
-  }
+    const emailLower = email.toLowerCase().trim();
+    const domain = emailLower.split('@')[1];
 
-  // Extract university name from domain
-  // Example: john@caldwell.edu -> caldwell
-  const collegeName = domain.replace('.edu', '').split('.').pop() || '';
-  
-  // Capitalize first letter
-  return collegeName.charAt(0).toUpperCase() + collegeName.slice(1);
+    if (!domain) {
+        return '';
+    }
+
+    // Extract university name from domain
+    // Example: john@caldwell.edu -> caldwell
+    const collegeName = domain.replace('.edu', '').split('.').pop() || '';
+
+    // Capitalize first letter
+    return collegeName.charAt(0).toUpperCase() + collegeName.slice(1);
 };
 
 /**
@@ -46,10 +46,10 @@ export const extractCollegeName = (email: string): string => {
  * @returns boolean - true if email format is valid
  */
 export const isValidEmailFormat = (email: string): boolean => {
-  if (!email || typeof email !== 'string') {
-    return false;
-  }
+    if (!email || typeof email !== 'string') {
+        return false;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
 };

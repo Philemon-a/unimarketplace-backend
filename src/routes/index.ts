@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express';
+import authRoutes from './authRoutes';
 
 const router = Router();
+
+// Auth routes
+router.use('/auth', authRoutes);
 
 // Welcome endpoint
 router.get('/', (_req: Request, res: Response) => {
@@ -11,6 +15,7 @@ router.get('/', (_req: Request, res: Response) => {
         endpoints: {
             health: '/health',
             api: '/api',
+            auth: '/api/auth',
         },
     });
 });

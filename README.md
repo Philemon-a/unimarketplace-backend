@@ -40,6 +40,16 @@ cp .env.example .env
 ```env
 PORT=3000
 NODE_ENV=development
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+5. Set up Supabase:
+```bash
+# Follow the detailed guide in SUPABASE_SETUP.md
+# 1. Create Supabase project
+# 2. Run database migrations
+# 3. Configure Google OAuth
 ```
 
 ## Running the Application
@@ -78,16 +88,47 @@ GET /api/items
 ```
 Returns all marketplace items (example endpoint).
 
+### Authentication
+
+#### OAuth Callback
+```
+POST /api/auth/callback
+```
+Handles OAuth callback and validates .edu email.
+
+#### Get Current User
+```
+GET /api/auth/session
+```
+Returns current authenticated user (requires Bearer token).
+
+#### Sign Out
+```
+POST /api/auth/signout
+```
+Signs out the current user.
+
 ## Project Structure
 
 ```
 unimarketplace-backend/
 ├── src/
 │   ├── index.ts              # Application entry point
+│   ├── config/
+│   │   └── supabase.ts       # Supabase client configuration
+│   ├── controllers/
+│   │   └── authController.ts # Authentication logic
 │   ├── middleware/
+│   │   ├── authMiddleware.ts # Auth & validation middleware
 │   │   └── errorHandler.ts   # Error handling middleware
-│   └── routes/
-│       └── index.ts          # API routes
+│   ├── routes/
+│   │   ├── authRoutes.ts     # Authentication routes
+│   │   └── index.ts          # Main API routes
+│   └── utils/
+│       └── emailValidator.ts # Email validation utilities
+├── supabase/
+│   └── migrations/
+│       └── 001_create_profiles_table.sql
 ├── dist/                     # Compiled JavaScript (generated)
 ├── .env                      # Environment variables
 ├── .env.example              # Example environment file
@@ -95,6 +136,7 @@ unimarketplace-backend/
 ├── nodemon.json             # Nodemon configuration
 ├── package.json             # Project dependencies
 ├── tsconfig.json            # TypeScript configuration
+├── SUPABASE_SETUP.md        # Supabase setup guide
 └── README.md                # Project documentation
 ```
 

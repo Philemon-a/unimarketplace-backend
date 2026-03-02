@@ -29,13 +29,13 @@ CREATE TABLE IF NOT EXISTS reports (
     
     -- Report details
     reason report_reason NOT NULL,
-    description TEXT,
+    description TEXT CHECK (length(description) <= 2000),
     status report_status DEFAULT 'pending',
     
     -- Admin review
     reviewed_by UUID REFERENCES profiles(id),
     reviewed_at TIMESTAMP WITH TIME ZONE,
-    admin_notes TEXT,
+    admin_notes TEXT CHECK (length(admin_notes) <= 2000),
     
     -- Metadata
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

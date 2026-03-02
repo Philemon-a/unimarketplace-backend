@@ -29,23 +29,22 @@ CREATE POLICY "Anyone can view colleges"
     TO authenticated
     USING (true);
 
--- Only admins can insert/update colleges (will be implemented with admin role)
+-- Only admins can insert/update colleges (checked via profiles.is_admin)
 CREATE POLICY "Only admins can manage colleges"
     ON colleges FOR ALL
     TO authenticated
-    USING (false); -- Will be updated with admin check
+    USING (
+        EXISTS (
+            SELECT 1
+            FROM profiles
+            WHERE profiles.id = auth.uid()
+              AND profiles.is_admin = true
+        )
+    );
 
--- Create updated_at trigger
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
+-- Create updated_at trigger (uses function from migration 001)
 CREATE TRIGGER update_colleges_updated_at BEFORE UPDATE ON colleges
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
 -- Insert sample colleges for testing
 INSERT INTO colleges (name, domain, city, state, latitude, longitude, is_verified) VALUES

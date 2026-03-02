@@ -42,12 +42,20 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
         UPDATE listings
-        SET favorites_count = favorites_count + 1
+        SET favorites_count = (
+            SELECT COUNT(*)
+            FROM favorites
+            WHERE listing_id = NEW.listing_id
+        )
         WHERE id = NEW.listing_id;
         RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
         UPDATE listings
-        SET favorites_count = GREATEST(favorites_count - 1, 0)
+        SET favorites_count = (
+            SELECT COUNT(*)
+            FROM favorites
+            WHERE listing_id = OLD.listing_id
+        )
         WHERE id = OLD.listing_id;
         RETURN OLD;
     END IF;

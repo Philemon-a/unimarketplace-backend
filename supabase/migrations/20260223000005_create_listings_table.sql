@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS listings (
     -- Listing details
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+    price DECIMAL(10, 2) NOT NULL CHECK (price > 0),
     condition item_condition NOT NULL,
     status listing_status DEFAULT 'active',
     
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS listings (
     
     -- Move-out mode
     is_urgent BOOLEAN DEFAULT false,
-    move_out_deadline DATE,
+    move_out_deadline TIMESTAMP WITH TIME ZONE,
     
     -- Images (array of URLs)
     images TEXT[] DEFAULT '{}',
@@ -129,6 +129,7 @@ RETURNS void AS $$
 BEGIN
     UPDATE listings
     SET views_count = views_count + 1
-    WHERE id = listing_id;
+    WHERE id = listing_id
+    AND status = 'active';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

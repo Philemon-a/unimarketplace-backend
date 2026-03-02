@@ -6,9 +6,13 @@ CREATE TABLE IF NOT EXISTS blocks (
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    -- Ensure user can't block themselves and can only block once
+    -- Ensure user can't block themselves and prevent circular blocks
     CONSTRAINT check_not_self_block CHECK (blocker_id != blocked_id),
-    CONSTRAINT unique_block UNIQUE (blocker_id, blocked_id)
+    CONSTRAINT unique_block UNIQUE (blocker_id, blocked_id),
+    CONSTRAINT unique_block_pair UNIQUE (
+        LEAST(blocker_id, blocked_id),
+        GREATEST(blocker_id, blocked_id)
+    )
 );
 
 -- Create indexes
@@ -37,14 +41,19 @@ CREATE POLICY "Users can remove own blocks"
     TO authenticated
     USING (auth.uid() = blocker_id);
 
--- Function to check if user is blocked
+-- Function to check if user is blocked (restricted to current user's relationships)
 CREATE OR REPLACE FUNCTION is_user_blocked(user_id UUID, potential_blocker UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Only allow checking if current user is involved in the relationship
+    IF auth.uid() != user_id AND auth.uid() != potential_blocker THEN
+        RETURN false;
+    END IF;
+    
     RETURN EXISTS (
         SELECT 1 FROM blocks
         WHERE blocker_id = potential_blocker
         AND blocked_id = user_id
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;

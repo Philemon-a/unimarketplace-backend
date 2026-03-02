@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     
     -- Message content
-    content TEXT NOT NULL,
+    content TEXT NOT NULL CHECK (length(content) <= 5000),
     
     -- Read status
     is_read BOOLEAN DEFAULT false,
@@ -105,11 +105,19 @@ CREATE POLICY "Recipients can mark messages as read"
         EXISTS (
             SELECT 1 FROM conversations
             WHERE conversations.id = messages.conversation_id
-            AND (conversations.buyer_id = auth.uid() OR conversations.seller_id = auth.uid())
-            AND auth.uid() != messages.sender_id
+            AND (
+                (conversations.buyer_id = auth.uid() AND messages.sender_id = conversations.seller_id)
+                OR (conversations.seller_id = auth.uid() AND messages.sender_id = conversations.buyer_id)
+            )
         )
     )
-    WITH CHECK (is_read = true);
+    WITH CHECK (
+        is_read = true
+        AND content = (SELECT content FROM messages WHERE id = messages.id)
+        AND sender_id = (SELECT sender_id FROM messages WHERE id = messages.id)
+        AND conversation_id = (SELECT conversation_id FROM messages WHERE id = messages.id)
+        AND created_at = (SELECT created_at FROM messages WHERE id = messages.id)
+    );
 
 -- Triggers
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations
@@ -118,8 +126,8 @@ CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations
 CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Function to update conversation last_message_at
-CREATE OR REPLACE FUNCTION update_conversation_last_message()
+-- Function to update conversation last_message_at (consistent naming)
+CREATE OR REPLACE FUNCTION update_conversation_last_message_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE conversations
@@ -132,7 +140,7 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_conversation_last_message
     AFTER INSERT ON messages
     FOR EACH ROW
-    EXECUTE FUNCTION update_conversation_last_message();
+    EXECUTE FUNCTION update_conversation_last_message_timestamp();
 
 -- Function to auto-close conversations when listing is sold
 CREATE OR REPLACE FUNCTION close_conversations_on_sold()
@@ -140,7 +148,9 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.status = 'sold' AND OLD.status != 'sold' THEN
         UPDATE conversations
-        SET is_active = false, closed_at = NOW()
+        SET is_active = false,
+            closed_at = NOW(),
+            closed_by = NEW.seller_id
         WHERE listing_id = NEW.id AND is_active = true;
     END IF;
     RETURN NEW;

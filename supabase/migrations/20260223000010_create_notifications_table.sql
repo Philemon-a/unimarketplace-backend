@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- Create indexes
-CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_type ON notifications(type);
 CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read) WHERE is_read = false;
@@ -53,13 +52,13 @@ CREATE POLICY "Users can update own notifications"
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
--- System can insert notifications (will be called by backend)
-CREATE POLICY "System can create notifications"
+-- Only service role can insert notifications (prevents notification spoofing)
+CREATE POLICY "Service role can create notifications"
     ON notifications FOR INSERT
-    TO authenticated
+    TO service_role
     WITH CHECK (true);
 
--- Function to create notification
+-- Function to create notification (restricted to service role or system triggers)
 CREATE OR REPLACE FUNCTION create_notification(
     p_user_id UUID,
     p_type notification_type,
@@ -95,8 +94,8 @@ BEGIN
     FROM conversations c
     WHERE c.id = NEW.conversation_id;
     
-    -- Get sender name
-    SELECT full_name INTO sender_name
+    -- Get sender name (use 'name' column, not 'full_name')
+    SELECT name INTO sender_name
     FROM profiles
     WHERE id = NEW.sender_id;
     
@@ -105,7 +104,7 @@ BEGIN
         recipient_id,
         'new_message',
         'New Message',
-        sender_name || ' sent you a message',
+        COALESCE(sender_name, 'Someone') || ' sent you a message',
         NULL,
         NEW.conversation_id
     );

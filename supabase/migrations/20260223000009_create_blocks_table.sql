@@ -6,14 +6,14 @@ CREATE TABLE IF NOT EXISTS blocks (
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    -- Ensure user can't block themselves and prevent circular blocks
+    -- Ensure user can't block themselves
     CONSTRAINT check_not_self_block CHECK (blocker_id != blocked_id),
-    CONSTRAINT unique_block UNIQUE (blocker_id, blocked_id),
-    CONSTRAINT unique_block_pair UNIQUE (
-        LEAST(blocker_id, blocked_id),
-        GREATEST(blocker_id, blocked_id)
-    )
+    CONSTRAINT unique_block UNIQUE (blocker_id, blocked_id)
 );
+
+-- Create unique index to prevent circular blocks
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_block_pair 
+    ON blocks(LEAST(blocker_id, blocked_id), GREATEST(blocker_id, blocked_id));
 
 -- Create indexes
 CREATE INDEX idx_blocks_blocker ON blocks(blocker_id);

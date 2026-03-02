@@ -29,18 +29,11 @@ CREATE POLICY "Anyone can view colleges"
     TO authenticated
     USING (true);
 
--- Only admins can insert/update colleges (checked via profiles.is_admin)
-CREATE POLICY "Only admins can manage colleges"
+-- Only service role can manage colleges initially (admin check will be added in migration 003)
+CREATE POLICY "Only service role can manage colleges"
     ON colleges FOR ALL
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1
-            FROM profiles
-            WHERE profiles.id = auth.uid()
-              AND profiles.is_admin = true
-        )
-    );
+    TO service_role
+    USING (true);
 
 -- Create updated_at trigger (uses function from migration 001)
 CREATE TRIGGER update_colleges_updated_at BEFORE UPDATE ON colleges

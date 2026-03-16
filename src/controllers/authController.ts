@@ -8,7 +8,7 @@ import { isEduEmail, extractCollegeName, isValidEmailFormat } from '../utils/ema
  */
 export const signUp = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { email, password, name } = req.body;
+        const { email, password, name, grad_year, avatar_url } = req.body;
 
         // Validate required fields
         if (!email || !password) {
@@ -88,7 +88,8 @@ export const signUp = async (req: Request, res: Response): Promise<void> => {
             email: data.user.email,
             name: name || null,
             college_id: college?.id || null,
-            avatar_url: null,
+            avatar_url: avatar_url || null,
+            graduation_year: grad_year ? Number(grad_year) : null,
         });
 
         if (profileError) {

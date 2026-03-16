@@ -355,6 +355,123 @@ export const getCurrentUser = async (
 };
 
 /**
+ * POST /api/auth/request-otp
+ * Send a one-time verification code to a .edu email
+ */
+export const requestOtp = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            res.status(400).json({ status: 'error', message: 'Email is required' });
+            return;
+        }
+
+        if (!isValidEmailFormat(email)) {
+            res.status(400).json({ status: 'error', message: 'Invalid email format' });
+            return;
+        }
+
+        if (!isEduEmail(email)) {
+            res.status(403).json({
+                status: 'error',
+                message: 'Only university .edu email addresses are allowed',
+            });
+            return;
+        }
+
+        const { error } = await supabase.auth.signInWithOtp({ email });
+
+        if (error) {
+            res.status(500).json({ status: 'error', message: error.message });
+            return;
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Verification code sent to your email',
+        });
+    } catch (_error) {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+
+/**
+ * POST /api/auth/verify-otp
+ * Verify the one-time code and return a session
+ */
+export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email, token } = req.body;
+
+        if (!email || !token) {
+            res.status(400).json({ status: 'error', message: 'Email and token are required' });
+            return;
+        }
+
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token,
+            type: 'email',
+        });
+
+        if (error || !data.user || !data.session) {
+            res.status(401).json({ status: 'error', message: 'Invalid or expired code' });
+            return;
+        }
+
+        // Check if profile exists, create if new user
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+            res.status(500).json({ status: 'error', message: 'Error checking user profile' });
+            return;
+        }
+
+        if (!profile) {
+            const collegeName = extractCollegeName(email);
+            const collegeDomain = email.toLowerCase().split('@')[1];
+            const { data: college } = await supabase
+                .from('colleges')
+                .select('id, name')
+                .eq('domain', collegeDomain)
+                .single();
+
+            await supabase.from('profiles').insert({
+                id: data.user.id,
+                email: data.user.email,
+                name: data.user.user_metadata?.name || null,
+                college_id: college?.id || null,
+                college_name: college?.name || collegeName,
+                avatar_url: null,
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Email verified successfully',
+            data: {
+                user: {
+                    id: data.user.id,
+                    email: data.user.email,
+                    name: data.user.user_metadata?.name || null,
+                },
+                session: {
+                    access_token: data.session.access_token,
+                    refresh_token: data.session.refresh_token,
+                },
+            },
+        });
+    } catch (_error) {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+
+/**
  * Sign out user
  */
 export const signOut = async (req: Request, res: Response): Promise<void> => {

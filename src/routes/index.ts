@@ -1,10 +1,14 @@
 import { Router, Request, Response } from 'express';
 import authRoutes from './authRoutes';
+import listingsRoutes from './listingsRoutes';
 
 const router = Router();
 
 // Auth routes
 router.use('/auth', authRoutes);
+
+// Listings routes
+router.use('/listings', listingsRoutes);
 
 // Welcome endpoint
 router.get('/', (_req: Request, res: Response) => {
@@ -16,16 +20,8 @@ router.get('/', (_req: Request, res: Response) => {
             health: '/health',
             api: '/api',
             auth: '/api/auth',
+            listings: '/api/listings',
         },
-    });
-});
-
-// Example routes - you can expand these
-router.get('/items', (_req: Request, res: Response) => {
-    res.json({
-        status: 'success',
-        message: 'Get all marketplace items',
-        data: [],
     });
 });
 

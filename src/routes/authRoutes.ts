@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import {
+    signUp,
+    signIn,
     handleOAuthCallback,
     getCurrentUser,
     signOut,
@@ -7,6 +9,25 @@ import {
 import { authenticate, validateEduEmail } from '../middleware/authMiddleware';
 
 const router = Router();
+
+/**
+ * POST /api/auth/signup
+ * Register a new user with email and password
+ */
+router.post('/signup', signUp);
+
+/**
+ * POST /api/auth/signin
+ * Sign in with email and password
+ */
+router.post('/signin', signIn);
+
+/**
+ * GET /api/auth/me
+ * Get current authenticated user profile
+ * Requires authentication
+ */
+router.get('/me', authenticate, getCurrentUser);
 
 /**
  * POST /api/auth/callback

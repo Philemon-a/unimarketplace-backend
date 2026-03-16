@@ -5,6 +5,8 @@ import {
     handleOAuthCallback,
     getCurrentUser,
     signOut,
+    requestOtp,
+    verifyOtp,
 } from '../controllers/authController';
 import { authenticate, validateEduEmail } from '../middleware/authMiddleware';
 
@@ -41,6 +43,18 @@ router.post('/callback', handleOAuthCallback);
  * Requires authentication
  */
 router.get('/session', authenticate, validateEduEmail, getCurrentUser);
+
+/**
+ * POST /api/auth/request-otp
+ * Send a one-time verification code to a .edu email
+ */
+router.post('/request-otp', requestOtp);
+
+/**
+ * POST /api/auth/verify-otp
+ * Verify the one-time code and return a session
+ */
+router.post('/verify-otp', verifyOtp);
 
 /**
  * POST /api/auth/signout

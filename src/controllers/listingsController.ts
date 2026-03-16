@@ -174,11 +174,48 @@ export const getAllListings = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const { data: listings, error: listingsError } = await supabase
+        const { q, category, condition, min_price, max_price } = req.query;
+
+        let query = supabase
             .from('listings')
             .select('*')
             .eq('college_id', profile.college_id)
-            .eq('status', 'active')
+            .eq('status', 'active');
+
+        if (q) {
+            query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+        }
+
+        if (category) {
+            const categorySlug = CATEGORY_SLUG_MAP[category as string];
+            if (categorySlug) {
+                const { data: categoryRow } = await supabase
+                    .from('categories')
+                    .select('id')
+                    .eq('slug', categorySlug)
+                    .single();
+                if (categoryRow) {
+                    query = query.eq('category_id', categoryRow.id);
+                }
+            }
+        }
+
+        if (condition) {
+            const mappedCondition = CONDITION_MAP[condition as string];
+            if (mappedCondition) {
+                query = query.eq('condition', mappedCondition);
+            }
+        }
+
+        if (min_price) {
+            query = query.gte('price', Number(min_price));
+        }
+
+        if (max_price) {
+            query = query.lte('price', Number(max_price));
+        }
+
+        const { data: listings, error: listingsError } = await query
             .order('created_at', { ascending: false });
 
         if (listingsError) {

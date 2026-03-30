@@ -19,18 +19,21 @@ CREATE INDEX idx_favorites_user_created ON favorites(user_id, created_at DESC);
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own favorites
+DROP POLICY IF EXISTS "Users can view own favorites" ON favorites;
 CREATE POLICY "Users can view own favorites"
     ON favorites FOR SELECT
     TO authenticated
     USING (auth.uid() = user_id);
 
 -- Users can add favorites
+DROP POLICY IF EXISTS "Users can add favorites" ON favorites;
 CREATE POLICY "Users can add favorites"
     ON favorites FOR INSERT
     TO authenticated
     WITH CHECK (auth.uid() = user_id);
 
 -- Users can remove their own favorites
+DROP POLICY IF EXISTS "Users can remove own favorites" ON favorites;
 CREATE POLICY "Users can remove own favorites"
     ON favorites FOR DELETE
     TO authenticated
@@ -63,6 +66,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_favorites_count ON favorites;
 CREATE TRIGGER trigger_update_favorites_count
     AFTER INSERT OR DELETE ON favorites
     FOR EACH ROW

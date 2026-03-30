@@ -57,6 +57,7 @@ CREATE POLICY "Users can update own reviews"
     WITH CHECK (auth.uid() = reviewer_id);
 
 -- Add trigger
+DROP TRIGGER IF EXISTS update_reviews_updated_at ON reviews;
 CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON reviews
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -116,6 +117,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_user_rating ON reviews;
 CREATE TRIGGER trigger_update_user_rating
     AFTER INSERT OR UPDATE OR DELETE ON reviews
     FOR EACH ROW

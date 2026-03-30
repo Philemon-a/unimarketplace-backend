@@ -61,6 +61,7 @@ CREATE INDEX idx_listings_seller_status ON listings(seller_id, status);
 ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
 
 -- Users can view active listings from verified sellers
+DROP POLICY IF EXISTS "Users can view active listings" ON listings;
 CREATE POLICY "Users can view active listings"
     ON listings FOR SELECT
     TO authenticated
@@ -75,12 +76,14 @@ CREATE POLICY "Users can view active listings"
     );
 
 -- Sellers can view their own listings (all statuses)
+DROP POLICY IF EXISTS "Sellers can view own listings" ON listings;
 CREATE POLICY "Sellers can view own listings"
     ON listings FOR SELECT
     TO authenticated
     USING (auth.uid() = seller_id);
 
 -- Users can create listings
+DROP POLICY IF EXISTS "Users can create listings" ON listings;
 CREATE POLICY "Users can create listings"
     ON listings FOR INSERT
     TO authenticated
@@ -95,6 +98,7 @@ CREATE POLICY "Users can create listings"
     );
 
 -- Sellers can update their own listings
+DROP POLICY IF EXISTS "Sellers can update own listings" ON listings;
 CREATE POLICY "Sellers can update own listings"
     ON listings FOR UPDATE
     TO authenticated
@@ -102,12 +106,14 @@ CREATE POLICY "Sellers can update own listings"
     WITH CHECK (auth.uid() = seller_id);
 
 -- Sellers can delete their own listings (soft delete by status)
+DROP POLICY IF EXISTS "Sellers can delete own listings" ON listings;
 CREATE POLICY "Sellers can delete own listings"
     ON listings FOR DELETE
     TO authenticated
     USING (auth.uid() = seller_id);
 
 -- Add trigger
+DROP TRIGGER IF EXISTS update_listings_updated_at ON listings;
 CREATE TRIGGER update_listings_updated_at BEFORE UPDATE ON listings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

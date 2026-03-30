@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../config/supabase';
+import { supabase, supabaseAdmin } from '../config/supabase';
 import { ItemCondition } from '../types/database';
 
 const CONDITION_MAP: Record<string, ItemCondition> = {
@@ -65,8 +65,11 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
+        // Get user's college_id from their profile
+        const dbClient = supabaseAdmin ?? supabase;
+
         // Look up category_id by slug
-        const { data: categoryRow, error: categoryError } = await supabase
+        const { data: categoryRow, error: categoryError } = await dbClient
             .from('categories')
             .select('id')
             .eq('slug', categorySlug)
@@ -79,9 +82,7 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
             });
             return;
         }
-
-        // Get user's college_id from their profile
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await dbClient
             .from('profiles')
             .select('college_id')
             .eq('id', req.user!.id)
@@ -118,7 +119,7 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
             move_out_deadline: move_out_date || null,
         };
 
-        const { data: listing, error: insertError } = await supabase
+        const { data: listing, error: insertError } = await dbClient
             .from('listings')
             .insert(insertPayload)
             .select()
@@ -127,7 +128,7 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
         if (insertError) {
             res.status(500).json({
                 status: 'error',
-                message: 'Error creating listing',
+                message: insertError.message,
             });
             return;
         }
@@ -152,7 +153,8 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
 export const getAllListings = async (req: Request, res: Response): Promise<void> => {
     try {
         // Get user's college_id
-        const { data: profile, error: profileError } = await supabase
+        const dbClient = supabaseAdmin ?? supabase;
+        const { data: profile, error: profileError } = await dbClient
             .from('profiles')
             .select('college_id')
             .eq('id', req.user!.id)
@@ -176,7 +178,7 @@ export const getAllListings = async (req: Request, res: Response): Promise<void>
 
         const { q, category, condition, min_price, max_price } = req.query;
 
-        let query = supabase
+        let query = dbClient
             .from('listings')
             .select('*')
             .eq('college_id', profile.college_id)
@@ -245,8 +247,9 @@ export const getAllListings = async (req: Request, res: Response): Promise<void>
 export const getListingById = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
+        const dbClient = supabaseAdmin ?? supabase;
 
-        const { data: listing, error } = await supabase
+        const { data: listing, error } = await dbClient
             .from('listings')
             .select('*')
             .eq('id', id)
@@ -267,9 +270,15 @@ export const getListingById = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        const { data: seller } = await dbClient
+            .from('profiles')
+            .select('id, name, avatar_url, college_id')
+            .eq('id', listing.seller_id)
+            .single();
+
         res.status(200).json({
             status: 'success',
-            data: { listing },
+            data: { listing, seller },
         });
     } catch (_error) {
         res.status(500).json({

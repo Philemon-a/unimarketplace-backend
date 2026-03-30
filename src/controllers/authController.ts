@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../config/supabase';
+import { supabase, supabaseAdmin } from '../config/supabase';
 import { isEduEmail, extractCollegeName, isValidEmailFormat } from '../utils/emailValidator';
 
 /**
@@ -46,13 +46,15 @@ export const signUp = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Sign up with Supabase Auth
+        // Sign up with Supabase Auth — include avatar_url in metadata so the
+        // handle_new_user trigger can write it to the profiles row on insert
         const { data, error: signUpError } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     name: name || null,
+                    avatar_url: avatar_url || null,
                 },
             },
         });
@@ -73,42 +75,41 @@ export const signUp = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Extract college domain and look up college
-        const collegeDomain = email.toLowerCase().split('@')[1];
-        const { data: college } = await supabase
-            .from('colleges')
-            .select('id, name')
-            .eq('domain', collegeDomain)
-            .single();
+        // Parse grad_year string (e.g. "2026") to integer for the DB column
+        const graduationYear = grad_year ? parseInt(grad_year, 10) : null;
 
-        // Create profile
-        const collegeName = extractCollegeName(email);
-        const { error: profileError } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            email: data.user.email,
-            name: name || null,
-            college_id: college?.id || null,
-            avatar_url: avatar_url || null,
-            graduation_year: grad_year ? Number(grad_year) : null,
-        });
-
-        if (profileError) {
-            res.status(500).json({
-                status: 'error',
-                message: 'Error creating user profile',
-            });
-            return;
+        // Update the profile row (created by the DB trigger) with graduation_year.
+        // Requires the admin client since there is no active session yet.
+        if (graduationYear && !isNaN(graduationYear) && supabaseAdmin) {
+            await supabaseAdmin
+                .from('profiles')
+                .update({ graduation_year: graduationYear })
+                .eq('id', data.user.id);
         }
+
+        // Send OTP verification code to the user's email.
+        // In dev mode skip the send — verifyOtp accepts hardcoded 123456 via admin client.
+        if (process.env.NODE_ENV !== 'development') {
+            await supabase.auth.signInWithOtp({ email });
+        }
+
+        // Fetch the completed profile so we can return college info
+        const profileQuery = supabaseAdmin
+            ? supabaseAdmin.from('profiles').select('*, colleges(name)').eq('id', data.user.id).single()
+            : supabase.from('profiles').select('*, colleges(name)').eq('id', data.user.id).single();
+        const { data: profile } = await profileQuery;
 
         res.status(201).json({
             status: 'success',
-            message: 'User registered successfully. Please check your email to verify your account.',
+            message: 'User registered successfully.',
             data: {
                 user: {
                     id: data.user.id,
                     email: data.user.email,
                     name: name || null,
-                    college_name: college?.name || collegeName,
+                    avatar_url: avatar_url || null,
+                    college_name: (profile?.colleges as { name?: string } | null)?.name || null,
+                    grad_year: graduationYear || null,
                 },
                 session: data.session
                     ? {
@@ -249,10 +250,14 @@ export const handleOAuthCallback = async (
         // Extract college name
         const collegeName = extractCollegeName(user.email);
 
+        // Use admin client to bypass RLS — the anon client has no auth.uid() context
+        // after getUser(), so the "Users can view own profile" policy blocks the select.
+        const dbClient = supabaseAdmin ?? supabase;
+
         // Check if profile exists, create if not
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await dbClient
             .from('profiles')
-            .select('*')
+            .select('*, colleges(name)')
             .eq('id', user.id)
             .single();
 
@@ -265,14 +270,21 @@ export const handleOAuthCallback = async (
             return;
         }
 
-        // If profile doesn't exist, create it
+        // If profile doesn't exist, create it (trigger may have missed it)
         if (!profile) {
-            const { error: insertError } = await supabase.from('profiles').insert({
+            const collegeDomain = user.email.toLowerCase().split('@')[1];
+            const { data: college } = await dbClient
+                .from('colleges')
+                .select('id')
+                .eq('domain', collegeDomain)
+                .single();
+
+            const { error: insertError } = await dbClient.from('profiles').insert({
                 id: user.id,
                 email: user.email,
                 name: user.user_metadata?.name || user.user_metadata?.full_name,
                 avatar_url: user.user_metadata?.avatar_url,
-                college_name: collegeName,
+                college_id: college?.id || null,
             });
 
             if (insertError) {
@@ -284,6 +296,11 @@ export const handleOAuthCallback = async (
             }
         }
 
+        // Fetch fresh profile after possible insert to get college join
+        const { data: freshProfile } = profile
+            ? { data: profile }
+            : await dbClient.from('profiles').select('*, colleges(name)').eq('id', user.id).single();
+
         // Return success with user data
         res.status(200).json({
             status: 'success',
@@ -292,9 +309,9 @@ export const handleOAuthCallback = async (
                 user: {
                     id: user.id,
                     email: user.email,
-                    name: user.user_metadata?.name || user.user_metadata?.full_name,
-                    avatar_url: user.user_metadata?.avatar_url,
-                    college_name: collegeName,
+                    name: (freshProfile?.name as string | null) || user.user_metadata?.name || user.user_metadata?.full_name,
+                    avatar_url: (freshProfile?.avatar_url as string | null) || user.user_metadata?.avatar_url,
+                    college_name: (freshProfile?.colleges as { name?: string } | null)?.name || collegeName,
                 },
                 session: {
                     access_token,
@@ -381,6 +398,14 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
+        if (process.env.NODE_ENV === 'development') {
+            res.status(200).json({
+                status: 'success',
+                message: 'Dev mode: use code 123456',
+            });
+            return;
+        }
+
         const { error } = await supabase.auth.signInWithOtp({ email });
 
         if (error) {
@@ -407,6 +432,62 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 
         if (!email || !token) {
             res.status(400).json({ status: 'error', message: 'Email and token are required' });
+            return;
+        }
+
+        if (process.env.NODE_ENV === 'development' && token === '123456') {
+            if (!supabaseAdmin) {
+                res.status(500).json({ status: 'error', message: 'Admin client not configured' });
+                return;
+            }
+            const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+            if (listError) {
+                res.status(500).json({ status: 'error', message: 'Failed to look up user' });
+                return;
+            }
+            const authUser = users.find(u => u.email === email);
+            if (!authUser) {
+                res.status(401).json({ status: 'error', message: 'User not found' });
+                return;
+            }
+            const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email,
+            });
+            if (linkError || !linkData) {
+                res.status(500).json({ status: 'error', message: 'Failed to create session' });
+                return;
+            }
+            const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
+                email,
+                token: linkData.properties.hashed_token,
+                type: 'magiclink',
+            });
+            if (otpError || !otpData.session) {
+                res.status(500).json({ status: 'error', message: 'Failed to verify session' });
+                return;
+            }
+            if (supabaseAdmin) {
+                await supabaseAdmin
+                    .from('profiles')
+                    .update({ email_verified: true })
+                    .eq('id', authUser.id);
+            }
+            res.status(200).json({
+                status: 'success',
+                message: 'Email verified successfully',
+                data: {
+                    user: {
+                        id: authUser.id,
+                        email: authUser.email,
+                        name: authUser.user_metadata?.name || null,
+                    },
+                    session: {
+                        access_token: otpData.session.access_token,
+                        refresh_token: otpData.session.refresh_token,
+                    },
+                },
+            });
             return;
         }
 
@@ -450,6 +531,13 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
                 college_name: college?.name || collegeName,
                 avatar_url: null,
             });
+        }
+
+        if (supabaseAdmin) {
+            await supabaseAdmin
+                .from('profiles')
+                .update({ email_verified: true })
+                .eq('id', data.user.id);
         }
 
         res.status(200).json({

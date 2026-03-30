@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../config/supabase';
+import { supabase, supabaseAdmin } from '../config/supabase';
 
 /**
  * POST /api/user/update-profile
@@ -64,7 +64,8 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         }
 
         // Update the profile
-        const { data: updatedProfile, error } = await supabase
+        const dbClient = supabaseAdmin ?? supabase;
+        const { data: updatedProfile, error } = await dbClient
             .from('profiles')
             .update(updates)
             .eq('id', req.user.id)
@@ -91,5 +92,34 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
             status: 'error',
             message: 'Internal server error',
         });
+    }
+};
+
+/**
+ * DELETE /api/user/delete-account
+ * Permanently delete the authenticated user's account
+ */
+export const deleteAccount = async (req: Request, res: Response): Promise<void> => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ status: 'error', message: 'Not authenticated' });
+            return;
+        }
+
+        if (!supabaseAdmin) {
+            res.status(500).json({ status: 'error', message: 'Admin client not configured' });
+            return;
+        }
+
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(req.user.id);
+
+        if (error) {
+            res.status(500).json({ status: 'error', message: 'Error deleting account' });
+            return;
+        }
+
+        res.status(200).json({ status: 'success', message: 'Account deleted successfully' });
+    } catch (_error) {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
     }
 };

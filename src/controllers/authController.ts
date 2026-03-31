@@ -238,7 +238,7 @@ export const handleOAuthCallback = async (
         // Validate .edu email
         if (!isEduEmail(user.email)) {
             // Delete the user if email is not .edu
-            await supabase.auth.admin.deleteUser(user.id);
+            if (supabaseAdmin) await supabaseAdmin.auth.admin.deleteUser(user.id);
 
             res.status(403).json({
                 status: 'error',
@@ -312,6 +312,7 @@ export const handleOAuthCallback = async (
                     name: (freshProfile?.name as string | null) || user.user_metadata?.name || user.user_metadata?.full_name,
                     avatar_url: (freshProfile?.avatar_url as string | null) || user.user_metadata?.avatar_url,
                     college_name: (freshProfile?.colleges as { name?: string } | null)?.name || collegeName,
+                    grad_year: freshProfile?.graduation_year ? String(freshProfile.graduation_year) : null,
                 },
                 session: {
                     access_token,

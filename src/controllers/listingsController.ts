@@ -84,7 +84,7 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
         }
         const { data: profile, error: profileError } = await dbClient
             .from('profiles')
-            .select('college_id')
+            .select('college_id, name')
             .eq('id', req.user!.id)
             .single();
 
@@ -107,6 +107,7 @@ export const createListing = async (req: Request, res: Response): Promise<void> 
         // Build insert payload
         const insertPayload = {
             seller_id: req.user!.id,
+            seller_name: profile.name || req.user!.name || null,
             college_id: profile.college_id,
             category_id: categoryRow.id,
             title,
@@ -191,7 +192,7 @@ export const getAllListings = async (req: Request, res: Response): Promise<void>
         if (category) {
             const categorySlug = CATEGORY_SLUG_MAP[category as string];
             if (categorySlug) {
-                const { data: categoryRow } = await supabase
+                const { data: categoryRow } = await dbClient
                     .from('categories')
                     .select('id')
                     .eq('slug', categorySlug)

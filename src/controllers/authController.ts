@@ -113,9 +113,9 @@ export const signUp = async (req: Request, res: Response): Promise<void> => {
                 },
                 session: data.session
                     ? {
-                          access_token: data.session.access_token,
-                          refresh_token: data.session.refresh_token,
-                      }
+                        access_token: data.session.access_token,
+                        refresh_token: data.session.refresh_token,
+                    }
                     : null,
             },
         });

@@ -15,7 +15,7 @@ export const notFoundHandler = (
         status: 'error',
         message: `Route ${req.originalUrl} not found`,
     });
-}; 
+};
 
 export const errorHandler = (
     err: Error,

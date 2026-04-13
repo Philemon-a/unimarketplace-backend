@@ -5,28 +5,17 @@ CREATE TABLE IF NOT EXISTS blocks (
     blocked_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-<<<<<<< pa-create-supabase-db-for-app
+
     -- Ensure user can't block themselves
     CONSTRAINT check_not_self_block CHECK (blocker_id != blocked_id),
     CONSTRAINT unique_block UNIQUE (blocker_id, blocked_id)
 );
 
--- Create unique index to prevent circular blocks
-CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_block_pair 
+-- Create unique index to prevent circular blocks (LEAST/GREATEST require a functional index, not a constraint)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_block_pair
     ON blocks(LEAST(blocker_id, blocked_id), GREATEST(blocker_id, blocked_id));
 
-=======
-    -- Ensure user can't block themselves and prevent circular blocks
-    CONSTRAINT check_not_self_block CHECK (blocker_id != blocked_id),
-    CONSTRAINT unique_block UNIQUE (blocker_id, blocked_id),
-    CONSTRAINT unique_block_pair UNIQUE (
-        LEAST(blocker_id, blocked_id),
-        GREATEST(blocker_id, blocked_id)
-    )
-);
 
->>>>>>> main
 -- Create indexes
 CREATE INDEX idx_blocks_blocker ON blocks(blocker_id);
 CREATE INDEX idx_blocks_blocked ON blocks(blocked_id);

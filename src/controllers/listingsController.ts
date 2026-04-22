@@ -181,7 +181,7 @@ export const getAllListings = async (req: Request, res: Response): Promise<void>
 
         let query = dbClient
             .from('listings')
-            .select('*')
+            .select('*, profiles!seller_id(avatar_url)')
             .eq('college_id', profile.college_id)
             .eq('status', 'active');
 
@@ -229,9 +229,14 @@ export const getAllListings = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        const flatListings = (listings ?? []).map((l: Record<string, unknown> & { profiles?: { avatar_url?: string } | null }) => {
+            const { profiles: profileJoin, ...rest } = l;
+            return { ...rest, seller_avatar_url: profileJoin?.avatar_url ?? null };
+        });
+
         res.status(200).json({
             status: 'success',
-            data: { listings },
+            data: { listings: flatListings },
         });
     } catch (_error) {
         res.status(500).json({
@@ -345,7 +350,7 @@ export const updateListing = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        const { data: listing, error } = await supabase
+        const { data: listing, error } = await (supabaseAdmin ?? supabase)
             .from('listings')
             .update(updates)
             .eq('id', id)
@@ -382,6 +387,30 @@ export const updateListing = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
+ * GET /api/listings/my-listings
+ * Get all listings for the authenticated user (excludes deleted)
+ */
+export const getMyListings = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { data: listings, error } = await (supabaseAdmin ?? supabase)
+            .from('listings')
+            .select('*')
+            .eq('seller_id', req.user!.id)
+            .neq('status', 'deleted')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            res.status(500).json({ status: 'error', message: 'Error fetching your listings' });
+            return;
+        }
+
+        res.status(200).json({ status: 'success', data: { listings: listings ?? [] } });
+    } catch (_error) {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+
+/**
  * DELETE /api/listings/:id
  * Soft delete a listing by setting status to 'deleted' (seller only)
  */
@@ -389,7 +418,7 @@ export const deleteListing = async (req: Request, res: Response): Promise<void> 
     try {
         const { id } = req.params;
 
-        const { data: listing, error } = await supabase
+        const { data: listing, error } = await (supabaseAdmin ?? supabase)
             .from('listings')
             .update({ status: 'deleted' })
             .eq('id', id)

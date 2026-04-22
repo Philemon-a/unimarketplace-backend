@@ -3,6 +3,7 @@ import {
     createListing,
     getAllListings,
     getListingById,
+    getMyListings,
     updateListing,
     deleteListing,
 } from '../controllers/listingsController';
@@ -21,6 +22,12 @@ router.post('/create-listing', authenticate, validateEduEmail, createListing);
  * Get all active listings for the user's college
  */
 router.get('/get-all-listings', authenticate, validateEduEmail, getAllListings);
+
+/**
+ * GET /api/listings/my-listings
+ * Get all listings for the authenticated user
+ */
+router.get('/my-listings', authenticate, getMyListings);
 
 /**
  * GET /api/listings/:id

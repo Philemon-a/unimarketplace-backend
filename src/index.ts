@@ -7,7 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import routes from './routes';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ override: true });
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;

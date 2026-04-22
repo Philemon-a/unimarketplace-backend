@@ -2,6 +2,50 @@ import { Request, Response } from 'express';
 import { supabase, supabaseAdmin } from '../config/supabase';
 
 /**
+ * GET /api/user/profile/:id
+ * Get a public profile by user ID
+ */
+export const getPublicProfile = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const dbClient = supabaseAdmin ?? supabase;
+
+        const { data, error } = await dbClient
+            .from('profiles')
+            .select('id, name, avatar_url, graduation_year, bio, phone_number, college_id, colleges(name)')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                res.status(404).json({ status: 'error', message: 'User not found' });
+                return;
+            }
+            res.status(500).json({ status: 'error', message: 'Error fetching profile' });
+            return;
+        }
+
+        const row = data as any;
+        res.status(200).json({
+            status: 'success',
+            data: {
+                profile: {
+                    id: row.id,
+                    name: row.name,
+                    avatar_url: row.avatar_url,
+                    graduation_year: row.graduation_year,
+                    bio: row.bio,
+                    phone_number: row.phone_number,
+                    college_name: row.colleges?.name ?? null,
+                },
+            },
+        });
+    } catch (_error) {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+
+/**
  * POST /api/user/update-profile
  * Update the authenticated user's profile
  */

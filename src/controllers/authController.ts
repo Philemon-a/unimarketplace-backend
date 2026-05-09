@@ -87,12 +87,6 @@ export const signUp = async (req: Request, res: Response): Promise<void> => {
                 .eq('id', data.user.id);
         }
 
-        // Send OTP verification code to the user's email.
-        // In dev mode skip the send — verifyOtp accepts hardcoded 123456 via admin client.
-        if (process.env.NODE_ENV !== 'development') {
-            await supabase.auth.signInWithOtp({ email });
-        }
-
         // Fetch the completed profile so we can return college info
         const profileQuery = supabaseAdmin
             ? supabaseAdmin.from('profiles').select('*, colleges(name)').eq('id', data.user.id).single()
@@ -399,14 +393,6 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            res.status(200).json({
-                status: 'success',
-                message: 'Dev mode: use code 123456',
-            });
-            return;
-        }
-
         const { error } = await supabase.auth.signInWithOtp({ email });
 
         if (error) {
@@ -429,73 +415,18 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
  */
 export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { email, token } = req.body;
+        const { email, token, type = 'email' } = req.body;
 
         if (!email || !token) {
             res.status(400).json({ status: 'error', message: 'Email and token are required' });
             return;
         }
 
-        if (process.env.NODE_ENV === 'development' && token === '123456') {
-            if (!supabaseAdmin) {
-                res.status(500).json({ status: 'error', message: 'Admin client not configured' });
-                return;
-            }
-            const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-            if (listError) {
-                res.status(500).json({ status: 'error', message: 'Failed to look up user' });
-                return;
-            }
-            const authUser = users.find(u => u.email === email);
-            if (!authUser) {
-                res.status(401).json({ status: 'error', message: 'User not found' });
-                return;
-            }
-            const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-                type: 'magiclink',
-                email,
-            });
-            if (linkError || !linkData) {
-                res.status(500).json({ status: 'error', message: 'Failed to create session' });
-                return;
-            }
-            const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
-                email,
-                token: linkData.properties.hashed_token,
-                type: 'magiclink',
-            });
-            if (otpError || !otpData.session) {
-                res.status(500).json({ status: 'error', message: 'Failed to verify session' });
-                return;
-            }
-            if (supabaseAdmin) {
-                await supabaseAdmin
-                    .from('profiles')
-                    .update({ email_verified: true })
-                    .eq('id', authUser.id);
-            }
-            res.status(200).json({
-                status: 'success',
-                message: 'Email verified successfully',
-                data: {
-                    user: {
-                        id: authUser.id,
-                        email: authUser.email,
-                        name: authUser.user_metadata?.name || null,
-                    },
-                    session: {
-                        access_token: otpData.session.access_token,
-                        refresh_token: otpData.session.refresh_token,
-                    },
-                },
-            });
-            return;
-        }
-
+        const otpType = type === 'signup' ? 'signup' : 'email';
         const { data, error } = await supabase.auth.verifyOtp({
             email,
             token,
-            type: 'email',
+            type: otpType,
         });
 
         if (error || !data.user || !data.session) {

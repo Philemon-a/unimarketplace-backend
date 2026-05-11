@@ -441,6 +441,20 @@ export const deleteListing = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
+        if (Array.isArray(listing?.images) && listing.images.length > 0) {
+            const filenames = listing.images
+                .map((url: string) => url.split('/listing-images/')[1])
+                .filter(Boolean);
+            if (filenames.length > 0) {
+                const { error: storageError } = await (supabaseAdmin ?? supabase).storage
+                    .from('listing-images')
+                    .remove(filenames);
+                if (storageError) {
+                    console.error('Storage cleanup failed for listing', id, storageError.message);
+                }
+            }
+        }
+
         res.status(200).json({
             status: 'success',
             message: 'Listing deleted successfully',

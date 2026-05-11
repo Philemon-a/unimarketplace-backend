@@ -40,9 +40,19 @@ app.get('/auth/reset-redirect', (_req, res) => {
 <body>
 <script>
   var hash = window.location.hash;
-  window.location.replace('unimarketplace://reset-password' + hash);
+  var appUrl = 'unimarketplace://reset-password' + hash;
+  // Try iframe trick first (works on iOS Safari for custom schemes)
+  var iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = appUrl;
+  document.body.appendChild(iframe);
+  // Also try direct replace after short delay
+  setTimeout(function() { window.location.replace(appUrl); }, 100);
 </script>
-<p>Opening app…</p>
+<p>Opening UniMarketplace…</p>
+<p style="margin-top:16px;font-size:14px;color:#666;">
+  If the app doesn't open, make sure UniMarketplace is installed on this device.
+</p>
 </body>
 </html>`);
 });

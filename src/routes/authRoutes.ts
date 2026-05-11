@@ -8,6 +8,7 @@ import {
     requestOtp,
     verifyOtp,
     forgotPassword,
+    resetPassword,
 } from '../controllers/authController';
 import { authenticate, validateEduEmail } from '../middleware/authMiddleware';
 
@@ -62,6 +63,12 @@ router.post('/verify-otp', verifyOtp);
  * Send a password reset email
  */
 router.post('/forgot-password', forgotPassword);
+
+/**
+ * POST /api/auth/reset-password
+ * Verify recovery OTP and update password
+ */
+router.post('/reset-password', resetPassword);
 
 /**
  * POST /api/auth/signout

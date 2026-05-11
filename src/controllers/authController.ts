@@ -510,10 +510,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const backendUrl = process.env.BACKEND_URL ?? 'https://unimarketplace-backend.onrender.com';
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${backendUrl}/auth/reset-redirect`,
-        });
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
 
         if (error) {
             res.status(500).json({ status: 'error', message: error.message });
@@ -521,6 +518,49 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         }
 
         res.status(200).json({ status: 'success', message: 'Password reset email sent' });
+    } catch {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Verify recovery OTP and update password
+ */
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email, token, password } = req.body;
+
+        if (!email || !token || !password) {
+            res.status(400).json({ status: 'error', message: 'Email, token, and password are required' });
+            return;
+        }
+
+        if (password.length < 6) {
+            res.status(400).json({ status: 'error', message: 'Password must be at least 6 characters' });
+            return;
+        }
+
+        const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' });
+
+        if (error || !data.user) {
+            res.status(401).json({ status: 'error', message: 'Invalid or expired code' });
+            return;
+        }
+
+        if (!supabaseAdmin) {
+            res.status(500).json({ status: 'error', message: 'Server configuration error' });
+            return;
+        }
+
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(data.user.id, { password });
+
+        if (updateError) {
+            res.status(500).json({ status: 'error', message: updateError.message });
+            return;
+        }
+
+        res.status(200).json({ status: 'success', message: 'Password updated successfully' });
     } catch {
         res.status(500).json({ status: 'error', message: 'Internal server error' });
     }

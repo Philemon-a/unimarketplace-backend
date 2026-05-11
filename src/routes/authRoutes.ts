@@ -7,6 +7,7 @@ import {
     signOut,
     requestOtp,
     verifyOtp,
+    forgotPassword,
 } from '../controllers/authController';
 import { authenticate, validateEduEmail } from '../middleware/authMiddleware';
 
@@ -55,6 +56,12 @@ router.post('/request-otp', requestOtp);
  * Verify the one-time code and return a session
  */
 router.post('/verify-otp', verifyOtp);
+
+/**
+ * POST /api/auth/forgot-password
+ * Send a password reset email
+ */
+router.post('/forgot-password', forgotPassword);
 
 /**
  * POST /api/auth/signout

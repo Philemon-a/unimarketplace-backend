@@ -493,6 +493,40 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
+ * POST /api/auth/forgot-password
+ * Send a password reset email
+ */
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            res.status(400).json({ status: 'error', message: 'Email is required' });
+            return;
+        }
+
+        if (!isValidEmailFormat(email) || !isEduEmail(email)) {
+            res.status(400).json({ status: 'error', message: 'Please provide a valid .edu email' });
+            return;
+        }
+
+        const backendUrl = process.env.BACKEND_URL ?? 'https://unimarketplace-backend.onrender.com';
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${backendUrl}/auth/reset-redirect`,
+        });
+
+        if (error) {
+            res.status(500).json({ status: 'error', message: error.message });
+            return;
+        }
+
+        res.status(200).json({ status: 'success', message: 'Password reset email sent' });
+    } catch {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+
+/**
  * Sign out user
  */
 export const signOut = async (req: Request, res: Response): Promise<void> => {

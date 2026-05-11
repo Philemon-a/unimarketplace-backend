@@ -28,6 +28,25 @@ app.get('/health', (_req, res) => {
     });
 });
 
+// Password reset deep-link redirect
+// Supabase redirects here after verifying the reset token, appending
+// #access_token=...&refresh_token=...&type=recovery as hash params.
+// This page passes those hash params on to the app via the custom scheme.
+app.get('/auth/reset-redirect', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Redirecting…</title></head>
+<body>
+<script>
+  var hash = window.location.hash;
+  window.location.replace('unimarketplace://reset-password' + hash);
+</script>
+<p>Opening app…</p>
+</body>
+</html>`);
+});
+
 // API routes
 app.use('/api', routes);
 
